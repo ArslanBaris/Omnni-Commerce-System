@@ -1,0 +1,205 @@
+services:
+  # ─────────────────────────────────────────
+  # KAFKA
+  # ─────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on: [kafka]
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  # ─────────────────────────────────────────
+  # DATABASES (Database per Service pattern)
+  # ─────────────────────────────────────────
+  auth-db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_DB: auth_db
+
+  product-db:
+    image: postgres:16-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: product
+      POSTGRES_PASSWORD: product_pass
+      POSTGRES_DB: product_db
+
+  order-db:
+    image: postgres:16-alpine
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: order
+      POSTGRES_PASSWORD: order_pass
+      POSTGRES_DB: order_db
+
+  payment-db:
+    image: postgres:16-alpine
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: payment
+      POSTGRES_PASSWORD: payment_pass
+      POSTGRES_DB: payment_db
+
+  # ─────────────────────────────────────────
+  # REDIS (product-service cache için)
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # ─────────────────────────────────────────
+  # OBSERVABILITY
+  # ─────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP (trace'ler buraya gelir)
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    depends_on: [elasticsearch]
+    ports:
+      - "5601:5601"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.0
+    depends_on: [elasticsearch]
+    user: root
+    volumes:
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # ─────────────────────────────────────────
+  # APPLICATION SERVICES
+  # ─────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: api-gateway
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      GATEWAY_PORT: 3000
+      KAFKA_BROKERS: kafka:29092
+    depends_on: [kafka, redis]
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: auth-service
+    env_file: .env
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      AUTH_DB_HOST: auth-db
+      AUTH_DB_PORT: 5432
+    depends_on: [kafka, auth-db]
+
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: product-service
+    ports:
+      - "3101:3101"
+    env_file: .env
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      PRODUCT_DB_HOST: product-db
+      PRODUCT_DB_PORT: 5432
+      REDIS_HOST: redis
+    depends_on: [kafka, product-db, redis]
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: order-service
+    ports:
+      - "3103:3103"
+    env_file: .env
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      ORDER_DB_HOST: order-db
+      ORDER_DB_PORT: 5432
+    depends_on: [kafka, order-db]
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: payment-service
+    ports:
+      - "3102:3102"
+    env_file: .env
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      PAYMENT_DB_HOST: payment-db
+      PAYMENT_DB_PORT: 5432
+    depends_on: [kafka, payment-db]
