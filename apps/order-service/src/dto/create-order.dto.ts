@@ -1,4 +1,4 @@
-import { IsString, IsArray, ArrayMinSize, ValidateNested, IsInt, Min, IsNumber } from 'class-validator';
+import { IsString, IsArray, ArrayMinSize, ValidateNested, IsInt, Min, IsNumber, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class OrderItemDto {
@@ -11,7 +11,8 @@ export class OrderItemDto {
 
   @IsNumber()
   @Min(0)
-  unitPrice: number;
+  @IsOptional()
+  unitPrice?: number;
 }
 
 export class CreateOrderDto {

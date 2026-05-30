@@ -39,7 +39,8 @@ export class ProductService {
   /**
    * Saga: sipariş oluşturmadan önce stok yeterli mi kontrol et
    */
-  async checkStock(items: StockItem[]): Promise<{ ok: boolean; reason?: string }> {
+  async checkStock(items: StockItem[]): Promise<{ ok: boolean; reason?: string; prices?: Record<string, number> }> {
+    const prices: Record<string, number> = {};
     for (const item of items) {
       const product = await this.productRepo.findOne({ where: { id: item.productId } });
       if (!product) {
@@ -51,8 +52,9 @@ export class ProductService {
           reason: `Yetersiz stok: ${product.name} (mevcut: ${product.stock}, istenen: ${item.quantity})`,
         };
       }
+      prices[item.productId] = Number(product.price);
     }
-    return { ok: true };
+    return { ok: true, prices };
   }
 
   /**

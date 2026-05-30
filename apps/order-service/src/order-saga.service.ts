@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ClientKafka } from '@nestjs/microservices';
+import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { KAFKA_CLIENTS, KAFKA_PATTERNS } from '@app/common';
 import { Order } from './entities/order.entity';
@@ -47,24 +47,7 @@ export class OrderSagaService {
   }
 
   async createOrder(dto: CreateOrderDto) {
-    // ── Adım 1: Siparişi pending olarak kaydet ──────────────────────────────
-    const total = dto.items.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0,
-    );
-
-    const items = dto.items.map((i) => {
-      const item = new OrderItem();
-      item.productId = i.productId;
-      item.quantity = i.quantity;
-      item.unitPrice = i.unitPrice;
-      return item;
-    });
-
-    let order = this.orderRepo.create({ userId: dto.userId, total, items, status: 'pending' });
-    order = await this.orderRepo.save(order);
-
-    // ── Adım 2: Stok kontrolü ───────────────────────────────────────────────
+    // ── Adım 2 (önce): Stok kontrolü + fiyat bilgisi al ─────────────────────
     const stockItems = dto.items.map((i) => ({
       productId: i.productId,
       quantity: i.quantity,
@@ -75,11 +58,30 @@ export class OrderSagaService {
     );
 
     if (!stockResult.ok) {
-      return this.failOrder(order, `Stok yetersiz: ${stockResult.reason}`);
+      // Sipariş kaydedilmeden hata dön
+      throw new RpcException({
+        statusCode: 400,
+        message: `Stok yetersiz: ${stockResult.reason}`,
+      });
     }
 
-    order.status = 'stock_checked';
-    await this.orderRepo.save(order);
+    // ── Adım 1: Siparişi pending olarak kaydet (fiyatlar server-side) ────────
+    const prices: Record<string, number> = stockResult.prices ?? {};
+    const total = dto.items.reduce(
+      (sum, item) => sum + (prices[item.productId] ?? 0) * item.quantity,
+      0,
+    );
+
+    const items = dto.items.map((i) => {
+      const item = new OrderItem();
+      item.productId = i.productId;
+      item.quantity = i.quantity;
+      item.unitPrice = prices[i.productId] ?? 0;
+      return item;
+    });
+
+    let order = this.orderRepo.create({ userId: dto.userId, total, items, status: 'stock_checked' });
+    order = await this.orderRepo.save(order);
 
     // ── Adım 3: Ödeme ───────────────────────────────────────────────────────
     const paymentResult = await firstValueFrom(

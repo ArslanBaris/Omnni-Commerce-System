@@ -1,4 +1,5 @@
 import { Transport, ClientProvider } from '@nestjs/microservices';
+import { KafkaRequestSerializerWithKey } from './kafka-request.serializer';
 
 /**
  * Tüm servisler bu factory'yi kullanarak Kafka bağlantısı kurar.
@@ -21,5 +22,6 @@ export const buildKafkaOptions = (
     producer: {
       allowAutoTopicCreation: true,
     },
+    serializer: new KafkaRequestSerializerWithKey(),
   },
 });

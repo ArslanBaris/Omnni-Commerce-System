@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RpcException } from '@nestjs/microservices';
-import * as CircuitBreaker from 'opossum';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const CircuitBreaker = require('opossum');
 import { Payment } from './payment.entity';
 
 interface PaymentRequest {
@@ -29,7 +30,8 @@ function mockBankApi(amount: number): Promise<string> {
 
 @Injectable()
 export class PaymentService {
-  private readonly breaker: CircuitBreaker;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private readonly breaker: any;
 
   constructor(
     @InjectRepository(Payment)
