@@ -7,6 +7,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { KAFKA_CLIENTS, buildKafkaOptions, buildPinoConfig } from '@app/common';
 import { AuthController } from './auth/auth.controller';
+import { ProductController } from './products/product.controller';
 import { JwtStrategy } from './auth/jwt.strategy';
 
 @Module({
@@ -27,16 +28,20 @@ import { JwtStrategy } from './auth/jwt.strategy';
       }),
     }),
 
-    // Auth-service Kafka client
     ClientsModule.registerAsync([
       {
         name: KAFKA_CLIENTS.AUTH,
         useFactory: () =>
           buildKafkaOptions('gateway-to-auth', 'gateway-auth-cg'),
       },
+      {
+        name: KAFKA_CLIENTS.PRODUCT,
+        useFactory: () =>
+          buildKafkaOptions('gateway-to-product', 'gateway-product-cg'),
+      },
     ]),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, ProductController],
   providers: [
     JwtStrategy,
     // ThrottlerGuard'ı global olarak uygula
