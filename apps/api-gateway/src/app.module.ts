@@ -8,6 +8,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { KAFKA_CLIENTS, buildKafkaOptions, buildPinoConfig } from '@app/common';
 import { AuthController } from './auth/auth.controller';
 import { ProductController } from './products/product.controller';
+import { OrderController } from './orders/order.controller';
 import { JwtStrategy } from './auth/jwt.strategy';
 
 @Module({
@@ -39,9 +40,14 @@ import { JwtStrategy } from './auth/jwt.strategy';
         useFactory: () =>
           buildKafkaOptions('gateway-to-product', 'gateway-product-cg'),
       },
+      {
+        name: KAFKA_CLIENTS.ORDER,
+        useFactory: () =>
+          buildKafkaOptions('gateway-to-order', 'gateway-order-cg'),
+      },
     ]),
   ],
-  controllers: [AuthController, ProductController],
+  controllers: [AuthController, ProductController, OrderController],
   providers: [
     JwtStrategy,
     // ThrottlerGuard'ı global olarak uygula
