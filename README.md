@@ -1,98 +1,239 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🛒 Omni-Commerce-System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS tabanlı, mikroservis mimarisiyle kurulmuş örnek bir e-ticaret altyapısı.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+**Kullanılan teknolojiler:** NestJS · Kafka · PostgreSQL · Redis · Docker · Kubernetes · JWT · TypeORM · OpenTelemetry · Prometheus · Grafana · ELK
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🧱 Mimari
 
-## Project setup
-
-```bash
-$ npm install
+```
+Client (Postman/Browser)
+        │ HTTP :3000
+        ▼
+   API Gateway
+        │ Kafka
+   ┌────┴────┬──────────┬──────────┐
+   ▼         ▼          ▼          ▼
+auth-service product   order     payment
+(Kafka only) service   service   service
+             :3101     :3103     :3102
 ```
 
-## Compile and run the project
+### Servisler
+
+| Servis | Açıklama | Port | DB |
+|--------|----------|------|----|
+| **api-gateway** | HTTP girişi, JWT doğrulama, rate limit | 3000 | — |
+| **auth-service** | Kayıt, giriş, token doğrulama | Kafka only | auth-db:5433 |
+| **product-service** | Ürün CRUD, stok yönetimi | Kafka | product-db:5434 |
+| **order-service** | Sipariş + Saga orchestration | Kafka | order-db:5435 |
+| **payment-service** | Ödeme + Circuit Breaker | Kafka | payment-db:5436 |
+
+---
+
+## 🚀 Kurulum
+
+### Gereksinimler
+
+| Araç | Versiyon |
+|------|----------|
+| Node.js | >= 20 |
+| npm | >= 10 |
+| Docker | >= 24 |
+| Docker Compose | >= 2 |
+
+### 1. Repoyu klonla
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+git clone https://github.com/kullanici-adi/omni-commerce-system.git
+cd omni-commerce-system
 ```
 
-## Run tests
+### 2. Bağımlılıkları yükle
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 3. Environment dosyasını oluştur
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cp .env.example .env
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+> `.env` dosyasını açıp değerleri kendi ortamına göre düzenle.  
+> Geliştirme ortamı için `.env.example`'deki default değerler çalışır.
 
-## Resources
+### 4. Docker altyapısını ayağa kaldır
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+# Tüm altyapı (Kafka, 4x PostgreSQL, Redis, Jaeger, Grafana, ELK)
+docker compose up -d
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Sadece auth için test edeceksen (daha hızlı):
+docker compose up -d zookeeper kafka kafka-ui auth-db redis
+```
 
-## Support
+Tüm container'ların çalıştığını kontrol et:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+docker compose ps
+```
 
-## Stay in touch
+### 5. Servisleri build et
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+npm run build api-gateway
+npm run build auth-service
+npm run build product-service
+npm run build order-service
+npm run build payment-service
+```
 
-## License
+### 6. Servisleri başlat
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Her biri ayrı terminal sekmesinde:
+
+```bash
+# Terminal 1 — Auth Service
+node dist/apps/auth-service/apps/auth-service/src/main.js
+
+# Terminal 2 — Product Service
+node dist/apps/product-service/apps/product-service/src/main.js
+
+# Terminal 3 — Order Service
+node dist/apps/order-service/apps/order-service/src/main.js
+
+# Terminal 4 — Payment Service
+node dist/apps/payment-service/apps/payment-service/src/main.js
+
+# Terminal 5 — API Gateway (en son başlat)
+node dist/apps/api-gateway/apps/api-gateway/src/main.js
+```
+
+Tüm servisler hazır olduğunda şunu görürsün:
+
+```
+[auth-service]    Nest microservice successfully started ✅
+[product-service] Nest microservice successfully started ✅
+[order-service]   Nest microservice successfully started ✅
+[payment-service] Nest microservice successfully started ✅
+[api-gateway]     Application is running on: http://localhost:3000 ✅
+```
+
+---
+
+## 🧪 Test
+
+### Kullanıcı Kaydı
+
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "123456"}'
+```
+
+### Giriş (JWT Token al)
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "123456"}'
+
+# Response: { "accessToken": "eyJhbGci...", "user": { ... } }
+```
+
+### Ürün Oluştur (JWT gerekli)
+
+```bash
+curl -X POST http://localhost:3000/products \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <accessToken>" \
+  -d '{"name": "Laptop", "price": 29999.99, "stock": 100}'
+```
+
+### Ürünleri Listele (public)
+
+```bash
+curl http://localhost:3000/products
+```
+
+### Sipariş Oluştur (JWT gerekli — Saga akışı başlar)
+
+```bash
+curl -X POST http://localhost:3000/orders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <accessToken>" \
+  -d '{
+    "items": [
+      { "productId": "<product-id>", "quantity": 2 }
+    ]
+  }'
+
+# Response: { "status": "completed", "total": 59999.98, ... }
+```
+
+---
+
+## 🎯 Design Pattern'lar
+
+| Pattern | Nerede | Açıklama |
+|---------|--------|----------|
+| **API Gateway** | `apps/api-gateway` | Tek HTTP giriş noktası |
+| **Database per Service** | Her servis ayrı DB | İzolasyon ve bağımsız ölçekleme |
+| **Saga Orchestration** | `order-service` | Dağıtık transaction yönetimi |
+| **Circuit Breaker** | `payment-service` | Hata toleransı (opossum) |
+| **Request-Reply** | Kafka | Senkron mesajlaşma pattern'ı |
+
+---
+
+## 📊 Observability
+
+| Araç | URL | Açıklama |
+|------|-----|----------|
+| Kafka UI | http://localhost:8080 | Topic ve consumer takibi |
+| Jaeger | http://localhost:16686 | Distributed tracing |
+| Grafana | http://localhost:3001 | Metrik dashboard (admin/admin) |
+| Kibana | http://localhost:5601 | Log görselleştirme |
+
+---
+
+## ☸️ Kubernetes ile Deploy
+
+```bash
+# Minikube başlat
+minikube start
+
+# Image'ları build et
+chmod +x k8s/build-images.sh
+./k8s/build-images.sh
+
+# Manifest'leri uygula
+kubectl apply -f k8s/
+
+# Servislerin durumunu kontrol et
+kubectl get pods
+```
+
+---
+
+## 📁 Proje Yapısı
+
+```
+omni-commerce-system/
+├── apps/
+│   ├── api-gateway/          # HTTP giriş noktası
+│   ├── auth-service/         # JWT tabanlı kimlik doğrulama
+│   ├── product-service/      # Ürün CRUD + stok yönetimi
+│   ├── order-service/        # Sipariş + Saga orchestration
+│   └── payment-service/      # Ödeme + Circuit Breaker
+├── libs/
+│   └── common/               # Paylaşılan kod (Kafka config, logger, filter...)
+├── k8s/                      # Kubernetes manifest'leri
+├── observability/            # Prometheus, Grafana, Filebeat config
+├── docker-compose.yml        # Geliştirme altyapısı
+├── Dockerfile                # Multi-stage build (ARG APP_NAME)
+└── .env.example              # Environment değişkenleri şablonu
+```
