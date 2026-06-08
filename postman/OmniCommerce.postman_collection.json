@@ -1,0 +1,119 @@
+{
+  "info": {
+    "name": "Omni-Commerce",
+    "description": "API Gateway üzerinden tam akış: register -> login -> ürün ekle -> sipariş.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "productId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1) Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@omni.com\",\n  \"password\": \"secret123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2) Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "if (data.accessToken) pm.collectionVariables.set('token', data.accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"demo@omni.com\",\n  \"password\": \"secret123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3) Create Product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "if (data.id) pm.collectionVariables.set('productId', data.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/products",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo Mouse\",\n  \"price\": 29.99,\n  \"stock\": 10\n}"
+        }
+      }
+    },
+    {
+      "name": "4) List Products",
+      "request": { "method": "GET", "url": "{{baseUrl}}/products" }
+    },
+    {
+      "name": "5) Create Order (Saga happy path)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"quantity\": 2, \"unitPrice\": 29.99 }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "6) Create Order (Saga FAIL — yetersiz stok)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"quantity\": 99999, \"unitPrice\": 29.99 }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "7) List My Orders",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/orders"
+      }
+    }
+  ]
+}
