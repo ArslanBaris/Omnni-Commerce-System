@@ -23,4 +23,4 @@ COPY --from=build /app/dist ./dist
 COPY package.json ./
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
-CMD ["sh", "-c", "node dist/apps/${APP_NAME}/main.js"]
+CMD ["sh", "-c", "node dist/apps/${APP_NAME}/apps/${APP_NAME}/src/main.js"]

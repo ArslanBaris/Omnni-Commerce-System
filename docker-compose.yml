@@ -23,6 +23,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -44,6 +50,11 @@ services:
       POSTGRES_USER: auth
       POSTGRES_PASSWORD: auth_pass
       POSTGRES_DB: auth_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   product-db:
     image: postgres:16-alpine
@@ -53,6 +64,11 @@ services:
       POSTGRES_USER: product
       POSTGRES_PASSWORD: product_pass
       POSTGRES_DB: product_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product -d product_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   order-db:
     image: postgres:16-alpine
@@ -62,6 +78,11 @@ services:
       POSTGRES_USER: order
       POSTGRES_PASSWORD: order_pass
       POSTGRES_DB: order_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   payment-db:
     image: postgres:16-alpine
@@ -71,6 +92,11 @@ services:
       POSTGRES_USER: payment
       POSTGRES_PASSWORD: payment_pass
       POSTGRES_DB: payment_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment -d payment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # ─────────────────────────────────────────
   # REDIS (product-service cache için)
@@ -143,7 +169,12 @@ services:
     environment:
       GATEWAY_PORT: 3000
       KAFKA_BROKERS: kafka:29092
-    depends_on: [kafka, redis]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: on-failure
 
   auth-service:
     build:
@@ -156,7 +187,12 @@ services:
       KAFKA_BROKERS: kafka:29092
       AUTH_DB_HOST: auth-db
       AUTH_DB_PORT: 5432
-    depends_on: [kafka, auth-db]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      auth-db:
+        condition: service_healthy
+    restart: on-failure
 
   product-service:
     build:
@@ -172,7 +208,14 @@ services:
       PRODUCT_DB_HOST: product-db
       PRODUCT_DB_PORT: 5432
       REDIS_HOST: redis
-    depends_on: [kafka, product-db, redis]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      product-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: on-failure
 
   order-service:
     build:
@@ -187,7 +230,12 @@ services:
       KAFKA_BROKERS: kafka:29092
       ORDER_DB_HOST: order-db
       ORDER_DB_PORT: 5432
-    depends_on: [kafka, order-db]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      order-db:
+        condition: service_healthy
+    restart: on-failure
 
   payment-service:
     build:
@@ -202,4 +250,9 @@ services:
       KAFKA_BROKERS: kafka:29092
       PAYMENT_DB_HOST: payment-db
       PAYMENT_DB_PORT: 5432
-    depends_on: [kafka, payment-db]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      payment-db:
+        condition: service_healthy
+    restart: on-failure
